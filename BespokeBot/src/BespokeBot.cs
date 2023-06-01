@@ -28,6 +28,7 @@ namespace BespokeBot
         public CommandsNextExtension? Commands { get; private set; }
         public InteractivityExtension? Interactivity { get; private set; }
         public ServiceProvider? ServiceProvider { get; private set; }
+        public BespokeData BespokeData { get; private set; }
 
         public async Task RunAsync()
         {
@@ -63,11 +64,12 @@ namespace BespokeBot
             Commands = Client.UseCommandsNext(commandsConfig);
 
             Commands.RegisterCommands<BasicCommands>();
+            Commands.RegisterCommands<ModeratorCommands>();
 
             Client.MessageCreated += OnMessageAdded;
             Client.GuildMemberAdded += OnMemberAdded;
 
-            Client.UseInteractivity(new InteractivityConfiguration
+            Interactivity = Client.UseInteractivity(new InteractivityConfiguration
             {
                 Timeout = TimeSpan.FromMinutes(1),
             });
@@ -86,11 +88,13 @@ namespace BespokeBot
         {
             foreach (var channel in e.Guild.Channels.Values)
             {
-                if (channel.Position == 0)
+                if (channel.Position == 1)
                 {
                     await channel.SendMessageAsync($"Hello {e.Member.Mention}! Welcome onboard!");
                 }
             }
+
+            //Add user to database
         }
 
         public static BespokeConfig LoadConfig()

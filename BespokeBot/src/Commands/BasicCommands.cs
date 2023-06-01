@@ -148,7 +148,36 @@ namespace BespokeBot.Commands
                 Description = jokeJson.First().Text
             };
 
-            await ctx.Channel.SendMessageAsync(embed: jokeEmbed).ConfigureAwait(false);
+            await ctx.Channel.SendMessageAsync(embed: jokeEmbed);
+        }
+
+        [Command("quote")]
+        [Description("Displays a random quote from a famous person.")]
+        public async Task Quote(CommandContext ctx)
+        {
+            var httpClient = new HttpClient();
+            var apiUrl = "https://api.api-ninjas.com/v1/quotes?limit=1";
+
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Add("X-Api-key", BespokeData.NinjasKey);
+
+            var quote = await httpClient.GetStringAsync(apiUrl);
+
+            var quoteJson = JsonSerializer.Deserialize<List<Quote>>(quote);
+
+            var footer = new DiscordEmbedBuilder.EmbedFooter()
+            {
+                Text = "- " + quoteJson.First().Author
+            };
+
+            var quoteEmbed = new DiscordEmbedBuilder
+            {
+                Title = "Here's your quote for the day...",
+                Description = quoteJson.First().Text,
+                Footer = footer
+            };
+
+            await ctx.Channel.SendMessageAsync(embed: quoteEmbed);
         }
     }
 }

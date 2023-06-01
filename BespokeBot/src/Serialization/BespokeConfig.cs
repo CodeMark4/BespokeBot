@@ -9,8 +9,6 @@ namespace BespokeBot.Serialization
 {
     public struct BespokeConfig
     {
-        private static string TOKEN = "MTExMzE1ODk3MjQzMDYyMjc0MA.GcaY_1.KanxL0G22o15b55Viuy85bJwna99-bTQNYm5jc";
-
         [JsonPropertyName("token")]
         public string? Token { get; set; }
 
