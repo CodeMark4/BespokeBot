@@ -5,10 +5,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DSharpPlus.Interactivity.Extensions;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using BespokeBot.Serialization;
 
 namespace BespokeBot.Commands
 {
@@ -222,6 +224,62 @@ namespace BespokeBot.Commands
             int newPoints = BespokeData.DbHelper.GetBespokePoints(member);
 
             await ctx.Message.RespondAsync($"{member.Mention} now has {newPoints} BespokePoints");
+        }
+
+        [Command("trivia")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Runs a game of trivia.")]
+        public async Task Trivia(CommandContext ctx,
+            [Description("Number of questions")] int numberOfQuestions = 1)
+        {
+            if (numberOfQuestions < 1)
+            {
+                numberOfQuestions = 1;
+            }
+            else if (numberOfQuestions > 30)
+            {
+                numberOfQuestions = 30;
+            }
+
+            var httpClient = new HttpClient();
+            var apiUrl = "https://api.api-ninjas.com/v1/trivia?limit=" + numberOfQuestions;
+
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Add("X-Api-key", BespokeData.NinjasKey);
+
+            var trivia = await httpClient.GetStringAsync(apiUrl);
+
+            var questions = JsonSerializer.Deserialize<List<TriviaQuestion>>(trivia);
+
+            foreach (var question in questions)
+            {
+                if (questions.IndexOf(question) > 0)
+                {
+                    await ctx.Channel.SendMessageAsync("Next question...");
+                }
+                
+                string category = string.IsNullOrWhiteSpace(question.Category) ? "random" : question.Category;
+
+                var triviaEmbed = new DiscordEmbedBuilder
+                {
+                    Title = "Category: " + category,
+                    Description = question.Question
+                };
+
+                await ctx.Channel.SendMessageAsync(embed: triviaEmbed);
+
+                var interactivity = ctx.Client.GetInteractivity();
+
+                var message = await interactivity.WaitForMessageAsync(x => x.Content.ToLower() == question.Answer.ToLower());
+
+                if (message.Result != null)
+                {
+                    await BespokeData.DbHelper.AddBespokePointsAsync((DiscordMember)ctx.Message.Author, 10);
+                    await ctx.Channel.SendMessageAsync($"{ctx.Message.Author.Mention} got it right and won 10 BespokePoints!");
+                }
+            }
+
+            await ctx.Channel.SendMessageAsync("Trivia is over. Thanks for participating!");
         }
     }
 }

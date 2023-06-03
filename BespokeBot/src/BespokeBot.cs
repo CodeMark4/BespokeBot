@@ -74,7 +74,7 @@ namespace BespokeBot
 
             Interactivity = Client.UseInteractivity(new InteractivityConfiguration
             {
-                Timeout = TimeSpan.FromMinutes(1),
+                Timeout = TimeSpan.FromSeconds(30),
             });
 
             await Client.ConnectAsync();
