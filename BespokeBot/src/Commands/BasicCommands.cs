@@ -179,5 +179,23 @@ namespace BespokeBot.Commands
 
             await ctx.Channel.SendMessageAsync(embed: quoteEmbed);
         }
+
+        [Command("points")]
+        [Description("Displays the number of BespokePoints a member has.")]
+        public async Task Points(CommandContext ctx)
+        {
+            int points = BespokeData.DbHelper.GetBespokePoints((DiscordMember) ctx.Message.Author);
+
+            await ctx.Message.RespondAsync($"You have {points} BespokePoints");
+        }
+
+        [Command("warnings")]
+        [Description("Displays the number of BespokePoints a member has.")]
+        public async Task Warnings(CommandContext ctx)
+        {
+            int warnings = BespokeData.DbHelper.GetWarnings((DiscordMember) ctx.Message.Author);
+
+            await ctx.Message.RespondAsync($"You have {warnings} warnings");
+        }
     }
 }

@@ -7,11 +7,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus.Interactivity.Extensions;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace BespokeBot.Commands
 {
     public class ModeratorCommands : BaseCommandModule
     {
+        public BespokeData BespokeData { private get; set; }
+
         [Command("mute")]
         [RequirePermissions(DSharpPlus.Permissions.MuteMembers)]
         [Description("Mutes a specified channel member.")]
@@ -63,7 +67,10 @@ namespace BespokeBot.Commands
                 await ctx.RespondAsync("You can't timeout a member for more than 15 minutes.");
             }
             else
+            {
                 await member.TimeoutAsync(duration);
+                await ctx.Message.RespondAsync("Timed out " + member.Mention + " for " + duration);
+            }
         }
 
         [Command("memberinfo")]
@@ -91,7 +98,9 @@ namespace BespokeBot.Commands
                 "\nUsername: " + member.Username +
                 "\nNickname: " + nick +
                 "\nJoined: " + member.JoinedAt.ToString("d") +
-                "\nRoles: " + string.Join(", ", roleNames),
+                "\nRoles: " + string.Join(", ", roleNames) + 
+                "\nBespokePoints: " + BespokeData.DbHelper.GetBespokePoints(member) + 
+                "\nWarnings: " + BespokeData.DbHelper.GetWarnings(member),
                 ImageUrl = member.AvatarUrl,
                 Color = DiscordColor.White
             };
@@ -141,7 +150,10 @@ namespace BespokeBot.Commands
             var answer = await interactivity.WaitForMessageAsync(x => x.Channel == ctx.Channel && x.Author == ctx.Member);
 
             if (answer.Result.Content.ToLower() == "yes")
+            {
+                await ctx.Message.RespondAsync("Kicked " + member.DisplayName);
                 await member.RemoveAsync();
+            }
             else if (answer.Result.Content.ToLower() == "no")
                 await ctx.Channel.SendMessageAsync(member.Mention + " has been spared... For now.");
             else
@@ -161,7 +173,10 @@ namespace BespokeBot.Commands
             var answer = await interactivity.WaitForMessageAsync(x => x.Channel == ctx.Channel && x.Author == ctx.Member);
 
             if (answer.Result.Content.ToLower() == "yes")
+            {
+                await ctx.Message.RespondAsync("Banned " + member.DisplayName);
                 await member.BanAsync(1, string.Join(' ', reason));
+            }
             else if (answer.Result.Content.ToLower() == "no")
                 await ctx.Channel.SendMessageAsync(member.Mention + " has been spared... For now.");
             else
@@ -175,7 +190,7 @@ namespace BespokeBot.Commands
            [Description("Member username")] DiscordMember member,
            [Description("Channel name")] DiscordChannel channel)
         {
-            await member.PlaceInAsync(channel).ConfigureAwait(false);
+            await member.PlaceInAsync(channel);
         }
 
         [Command("blacklist")]
@@ -184,7 +199,29 @@ namespace BespokeBot.Commands
         public async Task Blacklist(CommandContext ctx,
            [Description("Word to blacklist")] string word)
         {
-            //Add word to database
+            await BespokeData.DbHelper.BlacklistWordAsync(word);
+            await ctx.Message.RespondAsync("Word blacklisted");
+        }
+
+        [Command("whitelist")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Whitelist a word.")]
+        public async Task Whitelist(CommandContext ctx,
+            [Description("Word to whitelist")] string word)
+        {
+            await BespokeData.DbHelper.WhitelistWordAsync(word);
+            await ctx.Message.RespondAsync("Word whitelisted");
+        }
+
+        [Command("addpoints")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Grant BespokePoints to a member.")]
+        public async Task AddPoints(CommandContext ctx, DiscordMember member, int points)
+        {
+            await BespokeData.DbHelper.AddBespokePointsAsync(member, points);
+            int newPoints = BespokeData.DbHelper.GetBespokePoints(member);
+
+            await ctx.Message.RespondAsync($"{member.Mention} now has {newPoints} BespokePoints");
         }
     }
 }

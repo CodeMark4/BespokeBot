@@ -13,6 +13,7 @@
             catch (Exception e)
             {
                 Console.Error.WriteLine(e);
+                Environment.Exit(1);
             }
         }
     }

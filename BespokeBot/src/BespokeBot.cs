@@ -28,7 +28,7 @@ namespace BespokeBot
         public CommandsNextExtension? Commands { get; private set; }
         public InteractivityExtension? Interactivity { get; private set; }
         public ServiceProvider? ServiceProvider { get; private set; }
-        public BespokeData BespokeData { get; private set; }
+        public BespokeData? BespokeData { get; private set; }
 
         public async Task RunAsync()
         {
@@ -49,7 +49,9 @@ namespace BespokeBot
             serviceCollection.AddSingleton<BespokeData>();
 
             ServiceProvider = serviceCollection.BuildServiceProvider();
-            ServiceProvider.GetService<BespokeData>().NinjasKey = bespokeConfig.NinjasKey;
+            BespokeData = ServiceProvider.GetService<BespokeData>();
+            BespokeData.NinjasKey = bespokeConfig.NinjasKey;
+            BespokeData.DbHelper = new DbHelper(bespokeConfig.DBConnection, "bespoke_db");
 
             var commandsConfig = new CommandsNextConfiguration
             {
@@ -68,6 +70,7 @@ namespace BespokeBot
 
             Client.MessageCreated += OnMessageAdded;
             Client.GuildMemberAdded += OnMemberAdded;
+            Client.GuildMemberRemoved += OnMemberRemoved;
 
             Interactivity = Client.UseInteractivity(new InteractivityConfiguration
             {
@@ -80,8 +83,25 @@ namespace BespokeBot
 
         public async Task OnMessageAdded(DiscordClient client, MessageCreateEventArgs e)
         {
+            var dbHelper = BespokeData.DbHelper;
+
             //Query database for blacklisted words and respond accordingly
-            await Task.CompletedTask;
+            if (dbHelper.ContainsBlacklistedWords(e.Message.Content))
+            {
+                await e.Message.DeleteAsync();
+                await e.Channel.SendMessageAsync($"Watch your language {e.Author.Mention}!");
+
+                var discordMember = (DiscordMember) e.Author;
+                await dbHelper.AddWarningAsync(discordMember);
+                int warnings = dbHelper.GetWarnings(discordMember);
+
+                if (warnings > 3)
+                {
+                    var timeoutDuration = 2 * warnings;
+                    await discordMember.TimeoutAsync(DateTimeOffset.Now.AddMinutes(timeoutDuration));
+                    await e.Channel.SendMessageAsync($"Warning limit reached, timed out {discordMember.DisplayName} for {timeoutDuration} minutes");
+                }
+            }
         }
 
         public async Task OnMemberAdded(DiscordClient client, GuildMemberAddEventArgs e)
@@ -94,7 +114,16 @@ namespace BespokeBot
                 }
             }
 
-            //Add user to database
+            //Add member to database
+            await BespokeData.DbHelper.AddMemberAsync(e.Member);
+        }
+
+        public async Task OnMemberRemoved(DiscordClient client, GuildMemberRemoveEventArgs e)
+        {
+            if (e.Guild.GetBanAsync(e.Member).Result != null)
+            {
+                BespokeData.DbHelper.DeleteMemberAsync(e.Member);
+            }
         }
 
         public static BespokeConfig LoadConfig()

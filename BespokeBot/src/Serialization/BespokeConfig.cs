@@ -17,5 +17,8 @@ namespace BespokeBot.Serialization
 
         [JsonPropertyName("ninjas_key")]
         public string? NinjasKey { get; set; }
+
+        [JsonPropertyName("db_connection")]
+        public string? DBConnection { get; set; }
     }
 }

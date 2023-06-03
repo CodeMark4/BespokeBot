@@ -10,8 +10,6 @@ namespace BespokeBot
     {
         public string NinjasKey { get; set; }
 
-        public BespokeData()
-        {
-        }
+        public DbHelper DbHelper { get; set; }
     }
 }
