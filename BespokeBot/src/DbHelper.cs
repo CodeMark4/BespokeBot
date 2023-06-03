@@ -111,13 +111,13 @@ namespace BespokeBot
             {
                 var document = records.First();
 
-                var pointsValue = document.GetValue("warnings");
+                var warningsValue = document.GetValue("warnings");
 
-                if (pointsValue != null && pointsValue.IsInt32)
+                if (warningsValue != null && warningsValue.IsInt32)
                 {
-                    int currentWarnings = pointsValue.AsInt32;
+                    int currentWarnings = warningsValue.AsInt32;
 
-                    var update = Builders<BsonDocument>.Update.Set("bespokePoints", currentWarnings + 1);
+                    var update = Builders<BsonDocument>.Update.Set("warnings", currentWarnings + 1);
 
                     await collection.UpdateOneAsync(filter, update);
                 }
@@ -150,12 +150,20 @@ namespace BespokeBot
         public async Task BlacklistWordAsync(string word)
         {
             var collection = _database.GetCollection<BsonDocument>("blacklisted_words");
-            var document = new BsonDocument
-            {
-                { "word", word }
-            };
 
-            await collection.InsertOneAsync(document);
+            var filter = Builders<BsonDocument>.Filter.Eq("word", word);
+
+            var result = collection.Find(filter).ToList();
+
+            if (result.Count == 0)
+            {
+                var document = new BsonDocument
+                {
+                    { "word", word }
+                };
+
+                await collection.InsertOneAsync(document);
+            }
         }
 
         public async Task WhitelistWordAsync(string word)
@@ -199,6 +207,59 @@ namespace BespokeBot
             }
 
             return false;
+        }
+
+        public async Task AddCityAsync(string city)
+        {
+            var collection = _database.GetCollection<BsonDocument>("cities");
+
+            var filter = Builders<BsonDocument>.Filter.Eq("city", city);
+
+            var result = collection.Find(filter).ToList();
+
+            if (result.Count == 0)
+            {
+                var document = new BsonDocument
+                {
+                    { "city", city }
+                };
+
+                await collection.InsertOneAsync(document);
+            }
+        }
+
+        public async Task RemoveCityAsync(string city)
+        {
+            var collection = _database.GetCollection<BsonDocument>("cities");
+
+            var filter = Builders<BsonDocument>.Filter.Eq("city", city);
+
+            await collection.DeleteOneAsync(filter);
+        }
+
+        public List<string> GetCities()
+        {
+            var collection = _database.GetCollection<BsonDocument>("cities");
+
+            var filter = Builders<BsonDocument>.Filter.Exists("city");
+
+            var result = collection.Find(filter);
+            var resultList = result.ToList();
+
+            var cityList = new List<string>();
+
+            foreach (var bson in resultList)
+            {
+                foreach (var element in bson)
+                {
+                    if (element.Value.IsString)
+                    {
+                        cityList.Add(element.Value.AsString);
+                    }
+                }
+            }
+
+            return cityList;
         }
     }
 }

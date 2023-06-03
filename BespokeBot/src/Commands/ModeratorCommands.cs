@@ -270,16 +270,73 @@ namespace BespokeBot.Commands
 
                 var interactivity = ctx.Client.GetInteractivity();
 
-                var message = await interactivity.WaitForMessageAsync(x => x.Content.ToLower() == question.Answer.ToLower());
+                var message = await interactivity.WaitForMessageAsync(x => x.Content.ToLower() == question.Answer.ToLower() || x.Content.ToLower() == "skip");
 
                 if (message.Result != null)
                 {
-                    await BespokeData.DbHelper.AddBespokePointsAsync((DiscordMember)ctx.Message.Author, 10);
-                    await ctx.Channel.SendMessageAsync($"{ctx.Message.Author.Mention} got it right and won 10 BespokePoints!");
+                    if (message.Result.Content.ToLower() == question.Answer.ToLower())
+                    {
+                        await BespokeData.DbHelper.AddBespokePointsAsync((DiscordMember)ctx.Message.Author, 10);
+                        await ctx.Channel.SendMessageAsync($"{ctx.Message.Author.Mention} got it right and won 10 BespokePoints!");
+                    }
                 }
             }
 
             await ctx.Channel.SendMessageAsync("Trivia is over. Thanks for participating!");
+        }
+
+        [Command("addcity")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Adds a city to the weather report.")]
+        public async Task AddCity(CommandContext ctx, string city)
+        {
+            await BespokeData.DbHelper.AddCityAsync(city);
+
+            await ctx.Message.RespondAsync($"Added {city} to the weather report");
+        }
+
+        [Command("removecity")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Removes a city from the weather report.")]
+        public async Task RemoveCity(CommandContext ctx, string city)
+        {
+            await BespokeData.DbHelper.RemoveCityAsync(city);
+
+            await ctx.Message.RespondAsync($"Removed {city} from the weather report");
+        }
+
+        [Command("fullweather")]
+        [RequirePermissions(DSharpPlus.Permissions.ModerateMembers)]
+        [Description("Displays a weather report.")]
+        public async Task FullWeather(CommandContext ctx)
+        {
+            await ctx.Channel.SendMessageAsync("Preparing weather report!");
+            var cities = BespokeData.DbHelper.GetCities();
+
+            foreach (var city in cities)
+            {
+                var httpClient = new HttpClient();
+                var apiUrl = "https://api.api-ninjas.com/v1/weather?city=" + city;
+
+                httpClient.DefaultRequestHeaders.Accept.Clear();
+                httpClient.DefaultRequestHeaders.Add("X-Api-key", BespokeData.NinjasKey);
+
+                var response = await httpClient.GetStringAsync(apiUrl);
+
+                var weather = JsonSerializer.Deserialize<Weather>(response);
+
+                var weatherEmbed = new DiscordEmbedBuilder
+                {
+                    Title = "Here's the weather for " + city + " " + BespokeData.GetEmoteForCloudPct(weather.CloudPct),
+                    Description = "Cloud percentage: " + weather.CloudPct +
+                                  "\nTemperature: " + weather.Temp +
+                                  "\nFeels like: " + weather.FeelsLike +
+                                  "\nHumidity: " + weather.Humidity +
+                                  "\nWind speed [m/s]: " + weather.WindSpeed
+                };
+
+                await ctx.Channel.SendMessageAsync(embed: weatherEmbed);
+            }
         }
     }
 }

@@ -197,5 +197,40 @@ namespace BespokeBot.Commands
 
             await ctx.Message.RespondAsync($"You have {warnings} warnings");
         }
+
+        [Command("weather")]
+        [Description("Displays current weather for a specified city.")]
+        public async Task Weather(CommandContext ctx, string city)
+        {
+            var httpClient = new HttpClient();
+            var apiUrl = "https://api.api-ninjas.com/v1/weather?city=" + city;
+
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Add("X-Api-key", BespokeData.NinjasKey);
+
+            var cities = BespokeData.DbHelper.GetCities();
+            var response = await httpClient.GetStringAsync(apiUrl);
+
+            try
+            {
+                var weather = JsonSerializer.Deserialize<Weather>(response);
+
+                var weatherEmbed = new DiscordEmbedBuilder
+                {
+                    Title = "Here's the weather for " + city + " " + BespokeData.GetEmoteForCloudPct(weather.CloudPct),
+                    Description = "Cloud percentage: " + weather.CloudPct +
+                                  "\nTemperature: " + weather.Temp + 
+                                  "\nFeels like: " + weather.FeelsLike + 
+                                  "\nHumidity: " + weather.Humidity + 
+                                  "\nWind speed [m/s]: " + weather.WindSpeed
+                };
+
+                await ctx.Channel.SendMessageAsync(embed: weatherEmbed);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e);
+            }
+        }
     }
 }
